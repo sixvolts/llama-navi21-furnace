@@ -45,12 +45,21 @@ path** for these head dims — and its config rows were never validated there:
 All three are gated on `GGML_CUDA_CC_IS_RDNA(cc)` / `__gfx906__` / `RDNA`, so
 **GCN (gfx906/908) and RDNA3/4 are byte-for-byte unchanged.**
 
-## Validation (V620, gfx1030)
+## Validation (Radeon Pro V620 / gfx1030)
 
-`-fa on` greedy output is **identical to `-fa off`** (numerically correct) for
-Qwen3.5-27B and Gemma-4 E4B/31B, prefill + decode. Enabling FA improves stock
-prefill: **Qwen +2–7%** (more at long context), **Gemma +8–12%**; decode
-unchanged (bandwidth-bound).
+Tested on Qwen3.5-27B, Qwen3.6-35B-A3B (MoE), Gemma-4 E4B and 31B:
+
+- **No aborts** with `-fa on` (prefill + decode, f16 and Q8_0 KV).
+- **Numerically correct vs `-fa off`** — perplexity (c=256) is within error bars:
+  - Qwen3.5-27B: `3.9872 ± 0.24` (on) vs `3.9785 ± 0.24` (off) — 0.2%
+  - Gemma-4 E4B: `18.66 ± 2.3` (on) vs `18.86 ± 2.3` (off)
+  - Short greedy decode is token-identical to `-fa off` until normal
+    floating-point drift (FA and non-FA accumulate in different orders).
+- **Prefill speedup** from enabling FA: Qwen +2–7% (more at long context),
+  Gemma +8–12%; decode unchanged (bandwidth-bound).
+
+Note: `-fa on` only crashes the *tile* kernel path; this fix is config/dispatch
+only, so the attention math is unchanged — hence the perplexity match.
 
 ## Build
 
