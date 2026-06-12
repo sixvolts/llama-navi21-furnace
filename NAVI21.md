@@ -61,6 +61,22 @@ Tested on Qwen3.5-27B, Qwen3.6-35B-A3B (MoE), Gemma-4 E4B and 31B:
 Note: `-fa on` only crashes the *tile* kernel path; this fix is config/dispatch
 only, so the attention math is unchanged — hence the perplexity match.
 
+### Also validated: Qwen3.5-122B-A10B (MoE, head_dim 256) + MTP
+
+Added 2026-06-12 on the 4× V620 production box (this model was not in the original
+set above):
+
+- **No aborts** with `-fa on` at real long context — llama-cli on a ~6.5k-token
+  prompt: prefill ~771 t/s, decode ~32 t/s, clean.
+- **Tile fix beats the dispatch-level VEC-override fork** on the same source tree
+  (Q4_K_XL, 4 GPU, f16 KV, `-ub 2048 -b 4096`): tile pp4096 **904** / tg128 34.1 vs
+  override pp4096 519 / tg128 33.9 — decode ties (bandwidth-bound), prefill +74%.
+- Deployed in production via systemd at 256k ctx (4 slots × 64k), q8_0 KV,
+  `--spec-type draft-mtp`. See `DEPLOY-NOTES.md`.
+- Caveat: `llama-bench -d` (depth) aborts in the KV state-restore path
+  (`state_seq_set_data`) — a harness artifact, not a kernel failure; validate depth
+  with llama-cli on a real long prompt.
+
 ## Build
 
 ```
