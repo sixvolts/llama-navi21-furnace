@@ -45,12 +45,37 @@ path** for these head dims — and its config rows were never validated there:
 All three are gated on `GGML_CUDA_CC_IS_RDNA(cc)` / `__gfx906__` / `RDNA`, so
 **GCN (gfx906/908) and RDNA3/4 are byte-for-byte unchanged.**
 
-## Validation (V620, gfx1030)
+## Validation (Radeon Pro V620 / gfx1030)
 
-`-fa on` greedy output is **identical to `-fa off`** (numerically correct) for
-Qwen3.5-27B and Gemma-4 E4B/31B, prefill + decode. Enabling FA improves stock
-prefill: **Qwen +2–7%** (more at long context), **Gemma +8–12%**; decode
-unchanged (bandwidth-bound).
+Tested on Qwen3.5-27B, Qwen3.6-35B-A3B (MoE), Gemma-4 E4B and 31B:
+
+- **No aborts** with `-fa on` (prefill + decode, f16 and Q8_0 KV).
+- **Numerically correct vs `-fa off`** — perplexity (c=256) is within error bars:
+  - Qwen3.5-27B: `3.9872 ± 0.24` (on) vs `3.9785 ± 0.24` (off) — 0.2%
+  - Gemma-4 E4B: `18.66 ± 2.3` (on) vs `18.86 ± 2.3` (off)
+  - Short greedy decode is token-identical to `-fa off` until normal
+    floating-point drift (FA and non-FA accumulate in different orders).
+- **Prefill speedup** from enabling FA: Qwen +2–7% (more at long context),
+  Gemma +8–12%; decode unchanged (bandwidth-bound).
+
+Note: `-fa on` only crashes the *tile* kernel path; this fix is config/dispatch
+only, so the attention math is unchanged — hence the perplexity match.
+
+### Also validated: Qwen3.5-122B-A10B (MoE, head_dim 256) + MTP
+
+Added 2026-06-12 on the 4× V620 production box (this model was not in the original
+set above):
+
+- **No aborts** with `-fa on` at real long context — llama-cli on a ~6.5k-token
+  prompt: prefill ~771 t/s, decode ~32 t/s, clean.
+- **Tile fix beats the dispatch-level VEC-override fork** on the same source tree
+  (Q4_K_XL, 4 GPU, f16 KV, `-ub 2048 -b 4096`): tile pp4096 **904** / tg128 34.1 vs
+  override pp4096 519 / tg128 33.9 — decode ties (bandwidth-bound), prefill +74%.
+- Deployed in production via systemd at 256k ctx (4 slots × 64k), q8_0 KV,
+  `--spec-type draft-mtp`. See `DEPLOY-NOTES.md`.
+- Caveat: `llama-bench -d` (depth) aborts in the KV state-restore path
+  (`state_seq_set_data`) — a harness artifact, not a kernel failure; validate depth
+  with llama-cli on a real long prompt.
 
 ## Build
 
