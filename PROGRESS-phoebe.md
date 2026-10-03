@@ -1142,3 +1142,22 @@ drafted columns are within run-to-run noise. The noise floor of the drafted colu
 picture from section 19 stands: MTP holds 2.5x over plain decode to 120k, DFlash2 is ahead up
 to about 16k-30k and falls off with depth, and the server ships with DFlash for short mixed
 work.
+
+## 26. 2026-10-03: wrap-up
+
+Decisions at the end of the optimization pass:
+
+- The repacked weight layout (section 24) is not pursued further. Shipping it means holding
+  the weights on the device in that layout only, so the prefill matmul, the dequantizers, the
+  row gather and the 1-to-6-column vector kernel would all have to read it, and the last of
+  those measured slower in that layout. The gain is bounded at +2 to 7% on DFlash prompts. It
+  stays as the `GGML_CUDA_ROWPACK=1` experiment.
+- The server on this machine now runs the MTP drafter by default (`--spec-type draft-mtp`,
+  3 tokens, `--spec-draft-temp 1.0`): its use is research chat with long tool results, where
+  MTP holds about 48 t/s to 120k of context and DFlash2 falls to 33 (section 25). DFlash2 stays
+  the default in `deploy/serve-v620.sh` (`SPEC=dflash`), the better choice for short mixed
+  work. The server is a systemd user service with lingering enabled, so it starts at boot.
+- The harnesses behind the measurements are in `docs/phoebe/bench/` (see its README).
+- Unused models and the quantization sources (the F16 and Q8_0 of Swift, the base Qwen3.8
+  quant, the full-vocabulary drafters) were removed locally; `deploy/scripts/make-models.sh`
+  rebuilds everything from the public sources.
