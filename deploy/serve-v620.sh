@@ -13,7 +13,7 @@
 #                         Fastest on mixed work (math, lists, code).
 #                 mtp:    the model's multi-token-prediction head, 3 tokens per step.
 #                         About 4% faster than dflash on research-style chat.
-#   CTX         context length               (default: 65536, as tested with dflash)
+#   CTX         context length               (default: 131072; both drafters fit at full context)
 #   THREADS     CPU threads                  (default: half of nproc, i.e. physical cores with SMT)
 #   HOST        bind address                 (default: 127.0.0.1; 0.0.0.0 for the LAN)
 #   PORT        port                         (default: 8080)
@@ -26,7 +26,7 @@ LLAMA_DIR=${LLAMA_DIR:-"$(cd "$(dirname "$0")/.." && pwd)"}
 TOOLS=${TOOLS:-$HOME/llama-webui-tools}
 MODELS=${MODELS:-$HOME/models}
 SPEC=${SPEC:-dflash}
-CTX=${CTX:-65536}
+CTX=${CTX:-131072}
 THREADS=${THREADS:-$(( $(nproc) > 1 ? $(nproc) / 2 : 1 ))}
 HOST=${HOST:-127.0.0.1}
 PORT=${PORT:-8080}

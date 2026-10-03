@@ -5,17 +5,18 @@ with web search tools, from bare hardware: BIOS, OS, kernel parameters, ROCm, ll
 and the server.
 
 The V620 is a 32 GB Navi 21 (gfx1030, RDNA2) datacenter card. It sells cheaply second-hand and has
-the memory for a 27B model at 4 bits with 64k context, but it needs a few BIOS and kernel settings
+the memory for a 27B model at 4 bits with 128k context, but it needs a few BIOS and kernel settings
 that a gaming card does not, and ROCm's defaults leave speed on the table. Everything below is
 what made it work.
 
-This describes a working machine as of 2026-09-27. It has not yet been replayed from a clean
+This describes a working machine as of 2026-10-03. It has not yet been replayed from a clean
 install; please open an issue for anything that differs.
 
 **What you end up with**
 
 - [Swift-Qwen3.8-27B](https://huggingface.co/ukisai/Swift-Qwen3.8-27b) (UkisAI's fine-tune of
-  Qwen3.8-27B) at Q4_K_XL, 64k context, fully on the GPU
+  Qwen3.8-27B) at Q4_K_XL, 128k context, fully on the GPU (about 28 GB of VRAM with the
+  DFlash2 drafter at full context)
 - speculative decoding with a DFlash2 or MTP drafter, about 43 t/s on research-style chat and up
   to 75 t/s on math, against 24 t/s without
 - llama-server's web UI with the web search tools, system prompt and defaults from
@@ -326,7 +327,12 @@ Choose the drafter with `SPEC`:
 | `none` | 24 t/s | about 24 t/s | |
 
 Numbers are from this machine, warm server, the model card's sampling (temperature 1.0,
-top-p 0.95, top-k 20).
+top-p 0.95, top-k 20), at short context. With a long context the two drafters part: on a
+400-word summary of a long document, MTP holds 48 t/s at 40k to 78k tokens and 44 t/s at 120k,
+while DFlash2 gives 43, 40 and 33 t/s at those depths (its drafter runs its own attention over the
+context, so each draft step grows with depth). The test machine runs `SPEC=mtp` for that reason:
+its sessions are research chats with long tool results. Plain decode is 21, 19 and 17 t/s at
+those depths; full tables in `PROGRESS-phoebe.md`, section 25.
 
 To use it from other machines on your network:
 
