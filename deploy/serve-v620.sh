@@ -13,6 +13,10 @@
 #                         Fastest on mixed work (math, lists, code).
 #                 mtp:    the model's multi-token-prediction head, 3 tokens per step.
 #                         About 4% faster than dflash on research-style chat.
+#   REASONING   xhigh | medium | low         (default: medium)
+#                 the chat template's reasoning effort when a request does not set one.
+#                 xhigh is the template's own default and Swift's benchmark level, but
+#                 its thinking is long; medium gives shorter replies.
 #   CTX         context length               (default: 131072; both drafters fit at full context)
 #   THREADS     CPU threads                  (default: half of nproc, i.e. physical cores with SMT)
 #   HOST        bind address                 (default: 127.0.0.1; 0.0.0.0 for the LAN)
@@ -26,6 +30,7 @@ LLAMA_DIR=${LLAMA_DIR:-"$(cd "$(dirname "$0")/.." && pwd)"}
 TOOLS=${TOOLS:-$HOME/llama-webui-tools}
 MODELS=${MODELS:-$HOME/models}
 SPEC=${SPEC:-dflash}
+REASONING=${REASONING:-medium}
 CTX=${CTX:-131072}
 THREADS=${THREADS:-$(( $(nproc) > 1 ? $(nproc) / 2 : 1 ))}
 HOST=${HOST:-127.0.0.1}
@@ -45,6 +50,10 @@ case $SPEC in
   none)   SPEC_ARGS=() ;;
   *)      echo "SPEC must be dflash, mtp or none" >&2; exit 1 ;;
 esac
+case $REASONING in
+  xhigh|medium|low) ;;
+  *) echo "REASONING must be xhigh, medium or low" >&2; exit 1 ;;
+esac
 
 [ -f "$TOOLS/config/mcp-servers.json" ] || { echo "run $TOOLS/scripts/make-mcp-config.sh first (clone https://github.com/sixvolts/llama-webui-tools to $TOOLS)" >&2; exit 1; }
 [ -f "$MODEL" ] || { echo "model not found: $MODEL (see deploy/scripts/download-models.sh)" >&2; exit 1; }
@@ -59,6 +68,7 @@ exec "$LLAMA_DIR/build/bin/llama-server" \
   -ngl 99 -fa on \
   -c "$CTX" -np 1 -t "$THREADS" \
   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0 \
+  --chat-template-kwargs "{\"reasoning_effort\":\"$REASONING\"}" \
   --host "$HOST" --port "$PORT" \
   --mcp-servers-config "$TOOLS/config/mcp-servers.json" \
   --ui-config-file "$TOOLS/config/webui-config.json" \

@@ -12,6 +12,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 Environment=SPEC=dflash
+Environment=REASONING=medium
 Environment=HOST=127.0.0.1
 Environment=PORT=8080
 ExecStart=%h/llama-navi21-furnace/deploy/serve-v620.sh

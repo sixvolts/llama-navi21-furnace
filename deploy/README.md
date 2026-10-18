@@ -344,6 +344,20 @@ With the web tools enabled, anyone who can reach the server can make it search t
 pages with your API key. Only bind to `0.0.0.0` on a network you trust, or add `--api-key`
 (see [Security](https://github.com/sixvolts/llama-webui-tools#security)).
 
+### Reasoning effort
+
+The chat template supports three reasoning efforts: `xhigh`, `medium` and `low`. Its own
+default is `xhigh`, the level Swift's benchmarks were run at, but at `xhigh` the template adds a
+system instruction to weigh alternatives and check the answer, and the thinking gets long.
+`serve-v620.sh` sets **`medium`** instead, which adds no instruction. Choose with `REASONING`:
+
+```
+REASONING=xhigh ~/llama-navi21-furnace/deploy/serve-v620.sh
+```
+
+A request can still choose its own with `"chat_template_kwargs": {"reasoning_effort": "xhigh"}`.
+The `/apply-template` endpoint shows the prompt the server builds, to check which is in effect.
+
 Other settings (`CTX`, `THREADS`, `PORT`, paths) are described at the top of `serve-v620.sh`;
 extra arguments are passed to llama-server.
 
@@ -351,9 +365,8 @@ extra arguments are passed to llama-server.
 
 `serve-v620.sh` starts the server with the Swift model card's sampling: temperature 1.0,
 top-p 0.95, top-k 20, min-p 0, no repetition penalty (1.0) and no presence penalty (0). The
-GGUF carries the same values as metadata (`general.sampling.temp`, `.top_p`, `.top_k`), and the
-chat template's default reasoning effort is `xhigh`, the level Swift's benchmarks were run at,
-so nothing has to be sent for thinking either. To see what the server is using:
+GGUF carries the same values as metadata (`general.sampling.temp`, `.top_p`, `.top_k`). To see
+what the server is using:
 
 ```
 curl -s localhost:8080/props | python3 -c "import json,sys; p=json.load(sys.stdin)['default_generation_settings']['params']; print({k: p[k] for k in ('temperature','top_p','top_k','min_p','repeat_penalty','presence_penalty')})"
@@ -388,8 +401,8 @@ systemctl --user enable --now llama-server
 sudo loginctl enable-linger $USER     # run without anyone logged in
 ```
 
-Edit the `Environment=` lines in the copied file to change the drafter, address or port. Logs:
-`journalctl --user -u llama-server -f`.
+Edit the `Environment=` lines in the copied file to change the drafter, reasoning effort, address
+or port. Logs: `journalctl --user -u llama-server -f`.
 
 ## 12. Troubleshooting
 
