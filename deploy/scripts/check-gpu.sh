@@ -46,8 +46,12 @@ echo
 echo "== amdgpu: VRAM size and ECC =="
 if journalctl -k -b 0 --no-pager >/dev/null 2>&1; then
   journalctl -k -b 0 --no-pager | grep -E 'Detected VRAM RAM|GECC' | sed 's/.*kernel: /  /' | sort -u
-  if journalctl -k -b 0 --no-pager | grep -q 'GECC will be disabled in next boot'; then
+  if journalctl -k -b 0 --no-pager | grep -q 'GECC will be enabled in next boot'; then
+    fail "ECC turns back ON at the next boot - this boot ran without amdgpu.ras_enable=0 (section 4)"
+  elif journalctl -k -b 0 --no-pager | grep -q 'GECC will be disabled in next boot'; then
     echo "  note: ECC turns off on the NEXT boot - reboot once more"
+  elif ! journalctl -k -b 0 --no-pager | grep -q 'GECC is disabled'; then
+    fail "VRAM ECC is on - set amdgpu.ras_enable=0 and reboot twice (section 4)"
   fi
 fi
 

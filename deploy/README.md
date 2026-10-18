@@ -119,6 +119,13 @@ then `sudo update-grub` and reboot.
   first boot logs `GECC will be disabled in next boot cycle`, the second logs `GECC is disabled`.
   The line `MEM ECC is active` appears either way and does not tell you anything. This one is
   measured: 21.2 -> 24.0 tokens/s without speculative decoding.
+- **ECC comes back after any boot without the parameter.** Since the setting is stored on the
+  card, it works in both directions: a boot without `amdgpu.ras_enable=0` logs `GECC will be
+  enabled in next boot cycle`, and ECC is on from the boot after. A card that arrives with ECC
+  already off (32752M on the first boot) still turns it back on that way: on a second machine,
+  the first boot of a fresh install did exactly that. Set the parameter before the first reboot
+  after installing, and keep it in `GRUB_CMDLINE_LINUX`, which unlike `GRUB_CMDLINE_LINUX_DEFAULT`
+  also applies to the recovery entries.
 - The other three were set during bring-up and never tested one by one. They are harmless on
   this machine; leave them out if you prefer, and add them back if you see PCI resource or GPU
   reset trouble.
@@ -212,7 +219,8 @@ It must end with `RESULT: OK`. Specifically:
 
 - the V620 is on `amdgpu` at **16.0 GT/s x16**, with a **32768 MiB** BAR
 - a `root bus resource` window above 4 GB exists
-- `Detected VRAM RAM=32752M` and `GECC is disabled` (if you see `30704M`, reboot once more)
+- `Detected VRAM RAM=32752M` and `GECC is disabled` (if you see `30704M`, reboot once more;
+  `GECC will be enabled in next boot cycle` means this boot ran without `amdgpu.ras_enable=0`)
 - a compute node with **`simd_count=144`**
 - `rocminfo` lists **gfx1030**
 
@@ -348,15 +356,17 @@ pages with your API key. Only bind to `0.0.0.0` on a network you trust, or add `
 
 The chat template supports three reasoning efforts: `xhigh`, `medium` and `low`. Its own
 default is `xhigh`, the level Swift's benchmarks were run at, but at `xhigh` the template adds a
-system instruction to weigh alternatives and check the answer, and the thinking gets long.
-`serve-v620.sh` sets **`medium`** instead, which adds no instruction. Choose with `REASONING`:
+system instruction to validate key assumptions and consider plausible alternatives, and the
+thinking gets long. `low` adds one to keep thinking brief. `serve-v620.sh` sets **`medium`**,
+which adds no instruction. Choose with `REASONING`:
 
 ```
 REASONING=xhigh ~/llama-navi21-furnace/deploy/serve-v620.sh
 ```
 
-A request can still choose its own with `"chat_template_kwargs": {"reasoning_effort": "xhigh"}`.
-The `/apply-template` endpoint shows the prompt the server builds, to check which is in effect.
+A request can still choose its own with `"chat_template_kwargs": {"reasoning_effort": "xhigh"}`;
+a request that sends other `chat_template_kwargs` keeps the server's effort. The
+`/apply-template` endpoint shows the prompt the server builds, to check which is in effect.
 
 Other settings (`CTX`, `THREADS`, `PORT`, paths) are described at the top of `serve-v620.sh`;
 extra arguments are passed to llama-server.
