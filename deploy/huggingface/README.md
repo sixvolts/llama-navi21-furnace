@@ -2,7 +2,7 @@
 license: other
 license_name: swift-open-license-1.0
 license_link: LICENSE
-base_model: ukisai/Swift-Qwen3.8-27b
+base_model: ukisai/Swift-1.5-Qwen3.8-27b
 tags:
   - gguf
   - llama.cpp
@@ -10,9 +10,9 @@ tags:
   - rocm
 ---
 
-# Swift-Qwen3.8-27B GGUF for one Radeon PRO V620
+# Swift 1.5 Qwen3.8-27B GGUF for one Radeon PRO V620
 
-A quantization of UkisAI's [Swift-Qwen3.8-27B](https://huggingface.co/ukisai/Swift-Qwen3.8-27b)
+A quantization of UkisAI's [Swift 1.5 Qwen3.8-27B](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b)
 that fits one 32 GB GPU with 64k context, plus two speculative-decoding drafters for it. Built
 and measured on an AMD Radeon PRO V620 (Navi 21, gfx1030), a datacenter card that sells cheaply
 second-hand. The full setup (BIOS, kernel, ROCm, llama.cpp build, server, web tools) is in
@@ -20,9 +20,9 @@ second-hand. The full setup (BIOS, kernel, ROCm, llama.cpp build, server, web to
 
 | file | size | what it is |
 |---|---|---|
-| `Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf` | 16.6 GiB | the model |
-| `dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf` | 1.3 GiB | DFlash2 block drafter |
-| `mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf` | 1.0 GiB | multi-token-prediction (MTP) drafter |
+| `Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf` | 16.2 GiB | the model |
+| `dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf` | 1.3 GiB | DFlash2 block drafter |
+| `mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf` | 1.0 GiB | multi-token-prediction (MTP) drafter |
 
 **Use the llama.cpp fork**
 [sixvolts/llama-navi21-furnace](https://github.com/sixvolts/llama-navi21-furnace), branch
@@ -31,11 +31,13 @@ second-hand. The full setup (BIOS, kernel, ROCm, llama.cpp build, server, web to
 
 ## The model
 
-Unsloth's UD-Q4_K_XL per-tensor recipe for Qwen3.8-27B, applied to Swift's F16 weights with
+Unsloth's UD-Q4_K_XL per-tensor recipe for Qwen3.8-27B, applied to Swift 1.5's BF16 weights with
 Unsloth's importance matrix, except that the tensors Unsloth stores in IQ formats are stored as
-Q4_K (IQ formats dequantize slowly on gfx1030). Token embeddings Q4_K, output Q6_K.
+Q4_K (IQ formats dequantize slowly on gfx1030). Token embeddings Q4_K, output Q6_K. The MTP
+layer is left out of the file (see the MTP drafter below).
 
-KL divergence against Swift's own Q8_0, on held-out text:
+KL divergence against Swift's own Q8_0, on held-out text, measured with the same recipe on
+Swift 1.0 (16.57 GiB there, with its MTP layer):
 
 | file | size | KLD |
 |---|---|---|
@@ -50,8 +52,9 @@ own; the drafter only changes speed.
 - **DFlash2**: z-lab's [Qwen3.8-27B-DFlash2](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF)
   drafter, quantized from BF16 to Q4_0 (the fastest of the drafter formats tested on gfx1030).
 - **MTP**: Unsloth's MTP drafter for Qwen3.8-27B
-  ([`MTP/mtp-Qwen3.8-27B-Q4_0.gguf`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF)). Swift did
-  not retrain the MTP head, so the base model's works unchanged.
+  ([`MTP/mtp-Qwen3.8-27B-Q4_0.gguf`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF)). Swift 1.5
+  did not retrain the MTP head (its `mtp.*` weights match the base model's to quantization
+  rounding), so the base model's works unchanged.
 - **Reduced draft vocabulary (d2t64k)**: in both, the full 248k-token output head is replaced by
   the 65,536 most likely rows of **Swift's** output projection (this file's Q6_K rows, copied
   unchanged) and a map from those rows to token ids. The head is most of a drafter's cost, so this
@@ -59,6 +62,11 @@ own; the drafter only changes speed.
   tokens outside it simply cannot be drafted.
 
 ## Speed on one V620
+
+Measured on Swift 1.0, which has the same architecture and quantization. Swift 1.5 decodes at the
+same speed with each drafter (5 prompts, temperature 1.0, 2 seeds: no drafter 23.5 against
+23.9 t/s, MTP 48.5 against 47.9, DFlash2 48.0 against 48.4), and on the same prompts
+(10 answers each, DFlash2) it reached finished answers in 6% fewer tokens.
 
 llama-server, warm, Swift sampling settings (temperature 1.0, top-p 0.95, top-k 20), with
 `--spec-draft-temp 1.0` (drafts sampled from the drafter and checked with speculative sampling,
@@ -86,13 +94,13 @@ because its cost does not grow with depth. Prefill (no drafter): 492 t/s at an e
 416 at 16k, 278 at 64k, 172 at 128k.
 
 ```
-llama-server -m Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf -ngl 99 -fa on -c 65536 \
-  -md dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf -ngld 99 \
+llama-server -m Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf -ngl 99 -fa on -c 65536 \
+  -md dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf -ngld 99 \
   --spec-type draft-dflash --spec-draft-n-max 7 --spec-draft-temp 1.0 \
   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
 ```
 
-For MTP: `-md mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf --spec-type draft-mtp --spec-draft-n-max 3`.
+For MTP: `-md mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf --spec-type draft-mtp --spec-draft-n-max 3`.
 
 ## Reproducing
 
@@ -102,8 +110,9 @@ byte-identical to these (`SHA256SUMS`).
 
 ## License and changes
 
-Swift-Qwen3.8-27B is UkisAI's fine-tune of [Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B)
-(Copyright 2026 Alibaba Cloud, Apache License 2.0). UkisAI's contribution is licensed under the
+Swift 1.5 Qwen3.8-27B is UkisAI's continuation of Swift 1.0, itself a fine-tune of
+[Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B) (Copyright 2026 Alibaba Cloud, Apache
+License 2.0). UkisAI's contribution is licensed under the
 **Swift Open License v1.0** (`LICENSE`): free for personal, research, educational and evaluation
 use, and for commercial use by individuals and organizations with gross annual revenue up to
 US$1,000,000; above that, commercial use requires a Swift Enterprise License from
@@ -116,12 +125,13 @@ drafter body (Unsloth) are Apache License 2.0.
 
 Changes made here (Swift Open License section 4(b)):
 
-- `Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf`: converted from UkisAI's
-  `Swift-Qwen3.8-27B-F16-*.gguf` by quantization with llama.cpp `llama-quantize`, per-tensor types
+- `Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf`: converted from UkisAI's `model-*.safetensors` to a
+  BF16 GGUF with llama.cpp `convert_hf_to_gguf.py --no-mtp` (the MTP layer and the vision encoder
+  are left out), then quantized with `llama-quantize`, per-tensor types
   as described above, importance matrix `imatrix_unsloth.gguf` from
   [unsloth/Qwen3.8-27B-GGUF](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF). No retraining.
-- `dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf`: z-lab's DFlash2 BF16 drafter quantized to Q4_0;
+- `dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf`: z-lab's DFlash2 BF16 drafter quantized to Q4_0;
   output head replaced by 65,536 rows of the output projection of the Q4_K_XL file above, plus a
   `d2t` token map. No retraining.
-- `mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf`: Unsloth's MTP drafter; output head replaced the same way.
+- `mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf`: Unsloth's MTP drafter; output head replaced the same way.
   No retraining.

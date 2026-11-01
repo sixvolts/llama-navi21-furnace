@@ -37,7 +37,7 @@ the Base Model is made available. A copy is distributed with the Work in the
 file LICENSE-APACHE-2.0.
 
 "Swift Contribution" shall mean the modifications to the Base Model authored
-by Licensor, in any form, including without limitation trained weight adapters,
+by Licensor, in any form, including without limitation adapted model weights,
 weight deltas, model weights to the extent they differ from the Base Model, and
 any configuration, documentation, and evaluation materials created by Licensor
 and distributed with the Work.
@@ -150,8 +150,8 @@ additional or different license terms and conditions for use, reproduction, or
 distribution of Your modifications, or for any such Derivative Works as a
 whole, provided Your use, reproduction, and distribution of the Work otherwise
 complies with the conditions stated in this License, and provided that Section
-5 continues to apply to the Swift Contribution contained in any such Derivative
-Works.
+5 continues to apply to the Swift Contribution contained in any such
+Derivative Works.
 
 5. Commercial Use Limitation.
 
@@ -202,9 +202,9 @@ tort (including negligence), contract, or otherwise, unless required by
 applicable law (such as deliberate and grossly negligent acts) or agreed to in
 writing, shall any Contributor be liable to You for damages, including any
 direct, indirect, special, incidental, or consequential damages of any
-character arising as a result of this License or out of the use or inability
-to use the Work (including but not limited to damages for loss of goodwill,
-work stoppage, computer failure or malfunction, or any and all other commercial
+character arising as a result of this License or out of the use or inability to
+use the Work (including but not limited to damages for loss of goodwill, work
+stoppage, computer failure or malfunction, or any and all other commercial
 damages or losses), even if such Contributor has been advised of the
 possibility of such damages.
 
@@ -229,5 +229,5 @@ END OF TERMS AND CONDITIONS
 APPENDIX: Notice for redistributors (quantizations, conversions, merges).
 
    Copyright 2026 UkisAI. Swift Contribution licensed under the Swift Open
-   License v1.0 (https://huggingface.co/ukisai/Swift-Qwen3.8-27b/blob/main/LICENSE).
+   License v1.0 (https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b/blob/main/LICENSE).
    Derivative of Qwen3.8-27B, Copyright 2026 Alibaba Cloud, Apache License 2.0.

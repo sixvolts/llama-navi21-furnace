@@ -9,7 +9,7 @@
 #   LLAMA_DIR   fork checkout                          (default: the one containing this script)
 #   BUILD       build directory, built with tests      (default: $LLAMA_DIR/build)
 #   MODELS      model directory                        (default: ~/models)
-#   MODEL       model for the coherence and speed checks (default: Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf)
+#   MODEL       model for the coherence and speed checks (default: Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf)
 #   BASE        a second build directory to compare speed against (optional, e.g. the live build)
 #   TEST_VENV   venv for the server tests, created on first use (default: ~/.venv-llama-tests)
 #   TEST_PORT_BASE  first port for the server tests, 10 per worker (default: 18080)
@@ -24,7 +24,7 @@ set -uo pipefail
 LLAMA_DIR=${LLAMA_DIR:-"$(cd "$(dirname "$0")/../.." && pwd)"}
 BUILD=${BUILD:-$LLAMA_DIR/build}
 MODELS=${MODELS:-$HOME/models}
-MODEL=${MODEL:-$MODELS/Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf}
+MODEL=${MODEL:-$MODELS/Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf}
 BASE=${BASE:-}
 TEST_VENV=${TEST_VENV:-$HOME/.venv-llama-tests}
 STOP_SERVER=${STOP_SERVER:-0}

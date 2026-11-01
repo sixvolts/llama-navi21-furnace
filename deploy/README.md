@@ -14,7 +14,7 @@ install; please open an issue for anything that differs.
 
 **What you end up with**
 
-- [Swift-Qwen3.8-27B](https://huggingface.co/ukisai/Swift-Qwen3.8-27b) (UkisAI's fine-tune of
+- [Swift 1.5 Qwen3.8-27B](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b) (UkisAI's fine-tune of
   Qwen3.8-27B) at Q4_K_XL, 128k context, fully on the GPU (about 28 GB of VRAM with the
   DFlash2 drafter at full context)
 - speculative decoding with a DFlash2 or MTP drafter, about 43 t/s on research-style chat and up
@@ -251,9 +251,9 @@ Three files, about 19 GB, go in `~/models`:
 
 | file | size | |
 |---|---|---|
-| `Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf` | 16.6 GiB | the model |
-| `dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf` | 1.3 GiB | DFlash2 drafter |
-| `mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf` | 1.0 GiB | MTP drafter |
+| `Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf` | 16.2 GiB | the model |
+| `dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf` | 1.3 GiB | DFlash2 drafter |
+| `mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf` | 1.0 GiB | MTP drafter |
 
 Download them:
 
@@ -261,7 +261,8 @@ Download them:
 ~/llama-navi21-furnace/deploy/scripts/download-models.sh
 ```
 
-or rebuild them from the upstream sources (about 80 GB of free space; byte-identical results):
+or rebuild them from the upstream sources (about 135 GB of free space; byte-identical results;
+the safetensors-to-GGUF conversion installs CPU PyTorch into its own venv on first use):
 
 ```
 ~/llama-navi21-furnace/deploy/scripts/make-models.sh
@@ -269,10 +270,11 @@ or rebuild them from the upstream sources (about 80 GB of free space; byte-ident
 
 What they are ([model card](huggingface/README.md) for details and licenses):
 
-- **The model** is Swift's F16 weights quantized with Unsloth's UD-Q4_K_XL per-tensor recipe and
+- **The model** is Swift 1.5's BF16 weights (converted from UkisAI's safetensors, without the MTP
+  layer) quantized with Unsloth's UD-Q4_K_XL per-tensor recipe and
   importance matrix, with the tensors Unsloth stores in IQ formats stored as Q4_K instead, since
   IQ formats are slow on gfx1030 (`recipes/swift-q4_k_xl.txt`). KL divergence against Swift's
-  Q8_0: 0.0092, against 0.0134 for Swift's own Q4_K_M.
+  Q8_0, measured on Swift 1.0 with the same recipe: 0.0092, against 0.0134 for Swift's own Q4_K_M.
 - **The drafters** propose tokens that the model checks in one batch, so they change speed, not
   output. Both have their 248k-token output head cut to the 65,536 most likely tokens, using rows
   of the model's own output projection, which makes each drafting step several times cheaper.
@@ -298,7 +300,7 @@ repo of yours. It needs the `hf` CLI, which `scripts/install-packages.sh` puts i
 3. Upload (about 19 GB; resumable if interrupted):
 
    ```
-   HF_REPO=<you>/Swift-Qwen3.8-27B-GGUF ~/llama-navi21-furnace/deploy/huggingface/upload.sh
+   HF_REPO=<you>/Swift-1.5-Qwen3.8-27B-GGUF ~/llama-navi21-furnace/deploy/huggingface/upload.sh
    ```
 
 `download-models.sh` and `make-models.sh` accept `HF_TOKEN` too, but the sources are public and

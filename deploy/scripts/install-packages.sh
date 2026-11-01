@@ -9,10 +9,11 @@ sudo apt update
 #              (rocm-dev alone is enough to build; the tested machine has the full metapackage)
 # clang-21...  the HIP compiler llama.cpp is built with, and its device libraries
 # rocm-smi     GPU clocks, temperature and VRAM use
+# libssl-dev   HTTPS in llama-server; the server tests in scripts/check.sh download their models
 sudo apt install -y \
   rocm rocm-smi rocm-device-libs-21 \
   clang-21 lld-21 libclang-rt-21-dev \
-  build-essential git curl pciutils \
+  build-essential git curl pciutils libssl-dev \
   python3-venv python3-pip
 
 # GPU access for your user (render, video), and kernel log access for check-gpu.sh (adm)

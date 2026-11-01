@@ -1,5 +1,5 @@
 #!/bin/bash
-# llama-server for one Radeon PRO V620: Swift-Qwen3.8-27B Q4_K_XL with a speculative drafter,
+# llama-server for one Radeon PRO V620: Swift-1.5-Qwen3.8-27B Q4_K_XL with a speculative drafter,
 # the web tools, the system prompt and the web UI defaults from llama-webui-tools.
 #
 #   deploy/serve-v620.sh [extra llama-server args...]
@@ -37,15 +37,15 @@ HOST=${HOST:-127.0.0.1}
 PORT=${PORT:-8080}
 CORS=${CORS:-http://localhost:$PORT,http://127.0.0.1:$PORT}
 
-MODEL=$MODELS/Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf
+MODEL=$MODELS/Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf
 
 # --spec-draft-temp 1.0: when a request samples (temperature > 0), drafts are sampled from the
 # drafter's distribution and verified with speculative sampling. Output is distributed exactly
 # as without a drafter; about 15% faster than exact-match drafts at temperature 1.0.
 case $SPEC in
-  dflash) SPEC_ARGS=(-md "$MODELS/dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf" -ngld 99
+  dflash) SPEC_ARGS=(-md "$MODELS/dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf" -ngld 99
                      --spec-type draft-dflash --spec-draft-n-max 7 --spec-draft-temp 1.0) ;;
-  mtp)    SPEC_ARGS=(-md "$MODELS/mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf" -ngld 99
+  mtp)    SPEC_ARGS=(-md "$MODELS/mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf" -ngld 99
                      --spec-type draft-mtp --spec-draft-n-max 3 --spec-draft-temp 1.0) ;;
   none)   SPEC_ARGS=() ;;
   *)      echo "SPEC must be dflash, mtp or none" >&2; exit 1 ;;

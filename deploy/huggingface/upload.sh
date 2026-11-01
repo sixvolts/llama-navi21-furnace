@@ -1,7 +1,7 @@
 #!/bin/bash
 # Upload the model, the drafters and this card to Hugging Face. Run it yourself: it publishes.
 #
-#   HF_REPO=SixVolts/Swift-Qwen3.8-27B-GGUF MODELS=~/models deploy/huggingface/upload.sh
+#   HF_REPO=SixVolts/Swift-1.5-Qwen3.8-27B-GGUF MODELS=~/models deploy/huggingface/upload.sh
 #
 # Needs the Hugging Face CLI `hf` (installed into ~/.venv-llama by scripts/install-packages.sh)
 # and a token with write access to the repo, either saved by `hf auth login` or passed as HF_TOKEN.
@@ -12,9 +12,9 @@ HF=$(command -v hf || true); [ -x "$HOME/.venv-llama/bin/hf" ] && HF=$HOME/.venv
 [ -n "$HF" ] || { echo "hf CLI not found: run scripts/install-packages.sh or pip install huggingface_hub" >&2; exit 1; }
 "$HF" auth whoami > /dev/null 2>&1 || { echo "not logged in: run '$HF auth login' (or export HF_TOKEN=...)" >&2; exit 1; }
 
-HF_REPO=${HF_REPO:-SixVolts/Swift-Qwen3.8-27B-GGUF}
+HF_REPO=${HF_REPO:-SixVolts/Swift-1.5-Qwen3.8-27B-GGUF}
 MODELS=${MODELS:-$HOME/models}
-FILES=(Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf)
+FILES=(Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf)
 
 # the published files must be exactly the ones the card and SHA256SUMS describe
 (cd "$MODELS" && sha256sum -c "$here/SHA256SUMS")

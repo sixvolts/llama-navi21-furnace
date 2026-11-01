@@ -6,15 +6,18 @@ second-hand and that upstream's HIP path treats as an afterthought. The goal is 
 single-card experience for a 27B-class model at long context, with everything measured on
 real hardware and every kernel change bit-exact against upstream's arithmetic.
 
-The reference setup is **Swift-Qwen3.8-27B** (UkisAI's fine-tune of Qwen3.8-27B) at Q4_K_XL
+The reference setup is **Swift 1.5 Qwen3.8-27B** (UkisAI's fine-tune of Qwen3.8-27B) at Q4_K_XL
 with a speculative drafter, 128k context, on one V620. A from-scratch deployment guide (BIOS,
 kernel, ROCm, build, models, server, web tools) is in [deploy/README.md](deploy/README.md);
 the quantized model and drafters are on Hugging Face at
-[SixVolts/Swift-Qwen3.8-27B-GGUF](https://huggingface.co/SixVolts/Swift-Qwen3.8-27B-GGUF).
+[SixVolts/Swift-1.5-Qwen3.8-27B-GGUF](https://huggingface.co/SixVolts/Swift-1.5-Qwen3.8-27B-GGUF).
 
 ## Performance on one V620
 
-Swift-Qwen3.8-27B Q4_K_XL (16.6 GiB), flash attention, 128k context, card at 300 W.
+Swift-Qwen3.8-27B Q4_K_XL (Swift 1.0, 16.6 GiB), flash attention, 128k context, card at 300 W.
+Swift 1.5 has the same architecture and quantization and measures the same: with each drafter
+its decode speed is within 1% of 1.0's (no drafter 23.5 against 23.9 t/s, MTP 48.5 against
+47.9, DFlash2 48.0 against 48.4; 5 prompts at temperature 1.0).
 
 Prefill and plain decode (`llama-bench`; depth = tokens already in the context):
 
@@ -102,14 +105,14 @@ needs, and is the exact build behind the numbers above.
 ## Running the reference setup
 
 ```sh
-llama-server -m Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf -ngl 99 -fa on -c 131072 \
-  -md dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf -ngld 99 \
+llama-server -m Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf -ngl 99 -fa on -c 131072 \
+  -md dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf -ngld 99 \
   --spec-type draft-dflash --spec-draft-n-max 7 --spec-draft-temp 1.0 \
   --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
 ```
 
 For long-context sessions use the MTP drafter instead:
-`-md mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf --spec-type draft-mtp --spec-draft-n-max 3`.
+`-md mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf --spec-type draft-mtp --spec-draft-n-max 3`.
 
 ## Documents
 

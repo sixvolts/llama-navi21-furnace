@@ -1,3 +1,3 @@
-560f4f3e4bda848fbd0eb1d555cc41ad0564715bc59d2548b76fe7b9d06aef66  Swift-Qwen3.8-27B-Q4_K_XL-noIQ.gguf
-c8ae36a04c2b201c113f2f3f612fbcebd6b97ca328f91efd1e99bb3f7fcbc24c  dflash-Qwen3.8-27B-Q4_0-d2t64k-swiftxl.gguf
-7633f7368ddbfe5c3f3b5ed2ad80176fc1f98db17d196dc99ac6bbfb4f1dc46d  mtp-Qwen3.8-27B-d2t64k-swiftxl.gguf
+bd38630f7d56ffd444c099bf81b80af56e050a9d6f443d5f253927820ee4b82c  Swift-1.5-Qwen3.8-27B-Q4_K_XL-noIQ.gguf
+f467a28ba0fa7c147c89d1935a60826853200652868b1141d55d23b8d9a685fe  dflash-Qwen3.8-27B-Q4_0-d2t64k-swift15xl.gguf
+cddca19b5c6e320c496d09eec4188b636ff42acfa648d4a7eb8c969c35cd3339  mtp-Qwen3.8-27B-d2t64k-swift15xl.gguf

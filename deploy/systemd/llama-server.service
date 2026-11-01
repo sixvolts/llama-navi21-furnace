@@ -5,7 +5,7 @@
 #   sudo loginctl enable-linger $USER    # start at boot, without a login session
 # Logs: journalctl --user -u llama-server -f
 [Unit]
-Description=llama-server (Swift-Qwen3.8-27B on a Radeon PRO V620)
+Description=llama-server (Swift-1.5-Qwen3.8-27B on a Radeon PRO V620)
 After=network-online.target
 Wants=network-online.target
 
