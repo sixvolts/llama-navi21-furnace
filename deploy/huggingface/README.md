@@ -36,13 +36,12 @@ Unsloth's importance matrix, except that the tensors Unsloth stores in IQ format
 Q4_K (IQ formats dequantize slowly on gfx1030). Token embeddings Q4_K, output Q6_K. The MTP
 layer is left out of the file (see the MTP drafter below).
 
-KL divergence against Swift's own Q8_0, on held-out text, measured with the same recipe on
-Swift 1.0 (16.57 GiB there, with its MTP layer):
+KL divergence against Swift 1.5's own Q8_0 (wikitext-2 test, 512-token context, 95 chunks):
 
-| file | size | KLD |
-|---|---|---|
-| this file | 16.57 GiB | 0.0092 |
-| Swift's Q4_K_M | 16.79 GiB | 0.0134 |
+| file | size | mean KLD | 99% KLD | same top token |
+|---|---|---|---|---|
+| this file | 16.24 GiB | 0.0093 | 0.084 | 95.94% |
+| Swift 1.5's Q4_K_M | 16.24 GiB | 0.0146 | 0.158 | 95.02% |
 
 ## The drafters
 

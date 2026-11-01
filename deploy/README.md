@@ -273,8 +273,8 @@ What they are ([model card](huggingface/README.md) for details and licenses):
 - **The model** is Swift 1.5's BF16 weights (converted from UkisAI's safetensors, without the MTP
   layer) quantized with Unsloth's UD-Q4_K_XL per-tensor recipe and
   importance matrix, with the tensors Unsloth stores in IQ formats stored as Q4_K instead, since
-  IQ formats are slow on gfx1030 (`recipes/swift-q4_k_xl.txt`). KL divergence against Swift's
-  Q8_0, measured on Swift 1.0 with the same recipe: 0.0092, against 0.0134 for Swift's own Q4_K_M.
+  IQ formats are slow on gfx1030 (`recipes/swift-q4_k_xl.txt`). KL divergence against Swift 1.5's
+  Q8_0: 0.0093, against 0.0146 for Swift 1.5's own Q4_K_M of the same size.
 - **The drafters** propose tokens that the model checks in one batch, so they change speed, not
   output. Both have their 248k-token output head cut to the 65,536 most likely tokens, using rows
   of the model's own output projection, which makes each drafting step several times cheaper.
