@@ -39,6 +39,7 @@ serve-v620.sh                llama-server launcher (model, drafter, web tools, p
 scripts/install-packages.sh  Ubuntu packages, user groups, pinned cmake
 scripts/check-gpu.sh         checks BAR, ECC, compute node and ROCm; run after any change
 scripts/build-llama.sh       builds this checkout for gfx1030
+scripts/check.sh             test suite: GPU kernels, unit and server tests, coherence, speed
 scripts/download-models.sh   downloads the model and drafters from Hugging Face
 scripts/make-models.sh       or rebuilds them from the upstream sources
 recipes/swift-q4_k_xl.txt    per-tensor quantization types used by make-models.sh
