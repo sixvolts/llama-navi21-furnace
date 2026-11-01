@@ -2810,9 +2810,17 @@ static bool ggml_cuda_try_gdn_state_gather(ggml_backend_cuda_context * cuda_ctx,
         if (gdn->src[5]->ne[3] != 1 || ggml_nelements(gdn->src[5]) != gather->ne[0]) {
             return false;
         }
+        // the row ids must be read now: the graph allocator only keeps them alive up to this
+        // GET_ROWS, so by the time the GATED_DELTA_NET runs their memory can belong to another
+        // tensor. Stash them at the start of the gather's own (unwritten) output, which stays
+        // allocated until the GATED_DELTA_NET that consumes it.
+        const size_t ids_size = ggml_nbytes(gather->src[1]);
+        GGML_ASSERT(ids_size <= ggml_nbytes(gather));
+        CUDA_CHECK(cudaMemcpyAsync(gather->data, gather->src[1]->data, ids_size, cudaMemcpyDeviceToDevice, cuda_ctx->stream()));
+
         cuda_ctx->gdn_state_gather[gdn] = {
             (const float *)   gather->src[0]->data,
-            (const int32_t *) gather->src[1]->data,
+            (const int32_t *) gather->data,
             (int64_t) (gather->src[0]->nb[1] / sizeof(float)),
         };
         return true;

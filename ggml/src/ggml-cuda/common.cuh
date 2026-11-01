@@ -1584,7 +1584,7 @@ struct ggml_backend_cuda_context {
     // skipped: the kernel reads the rows through the ids instead. Per graph evaluation.
     struct gdn_state_gather_t {
         const float *   src;        // the cache (GET_ROWS src0)
-        const int32_t * ids;        // row ids (GET_ROWS src1), one per sequence
+        const int32_t * ids;        // row ids, one per sequence: a copy in the gather output (GET_ROWS src1 is freed after the GET_ROWS)
         int64_t         row_stride; // in floats
     };
     std::unordered_map<const ggml_tensor *, gdn_state_gather_t> gdn_state_gather;
