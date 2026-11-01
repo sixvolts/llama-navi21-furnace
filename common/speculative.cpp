@@ -432,6 +432,8 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
 
     std::vector<common_sampler_ptr> smpls;
 
+    std::vector<std::mt19937> rngs; // per-seq draft sampling (params.temp > 0), reseeded per request by set_seed()
+
     // backend sampler chain per seq, attached to ctx_dft
     std::vector<llama_sampler *> backend_chains;
 
@@ -487,6 +489,11 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
         // llama_batch_init allocates only one of token/embd; eagle3 decoder needs both.
         // TODO: fix, how to call without malloc
         batch.token = (llama_token *) malloc(sizeof(llama_token) * n_b);
+
+        rngs.resize(n_seq);
+        for (uint32_t i = 0; i < n_seq; ++i) {
+            rngs[i].seed(0x5eed + i);
+        }
 
         smpls.resize(n_seq);
         for (auto & s : smpls) {
@@ -749,6 +756,9 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
             n_drafting++;
             drafting[seq_id] = true;
             common_sampler_reset(smpls[seq_id].get());
+            if (dp.probs) {
+                dp.probs->clear();
+            }
 
             llama_memory_seq_rm(llama_get_memory(ctx_dft), seq_id, pending_pos_last[seq_id], -1);
 
@@ -795,7 +805,7 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
                             common_token_to_piece(ctx_dft, cur_p->data[k].id).c_str());
                 }
 
-                const llama_token id = cur_p->data[0].id;
+                llama_token id = cur_p->data[0].id;
 
                 // only collect very high-confidence draft tokens
                 // (configurable via --spec-draft-p-min, set to 0.0 to disable early-stop)
@@ -806,14 +816,44 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
                     continue;
                 }
 
-                common_sampler_accept(smpl, id, true);
-
                 auto & dp = dparams.at(seq_id);
                 auto & result = *dp.result;
 
+                // sampled drafts: draw from softmax(logits / temp) over the top-k candidates
+                if (dp.sample && params.temp > 0.0f && dp.probs != nullptr && cur_p->size > 0) {
+                    const size_t n_cand = cur_p->size;
+                    std::vector<double> q(n_cand);
+                    double l_max = cur_p->data[0].logit;
+                    for (size_t k = 1; k < n_cand; ++k) {
+                        l_max = std::max(l_max, (double) cur_p->data[k].logit);
+                    }
+                    double sum = 0.0;
+                    for (size_t k = 0; k < n_cand; ++k) {
+                        q[k] = std::exp(((double) cur_p->data[k].logit - l_max) / params.temp);
+                        sum += q[k];
+                    }
+                    const double tgt = std::uniform_real_distribution<double>(0.0, 1.0)(rngs[seq_id]) * sum;
+                    double run = 0.0;
+                    for (size_t k = 0; k < n_cand; ++k) {
+                        run += q[k];
+                        if (run >= tgt) {
+                            id = cur_p->data[k].id;
+                            break;
+                        }
+                    }
+                    std::vector<llama_token_data> dist(n_cand);
+                    for (size_t k = 0; k < n_cand; ++k) {
+                        dist[k] = { cur_p->data[k].id, cur_p->data[k].logit, (float) (q[k] / sum) };
+                    }
+                    dp.probs->push_back(std::move(dist));
+                }
+
+                common_sampler_accept(smpl, id, true);
+
                 result.push_back(id);
 
-                if (params.n_max <= (int) result.size()) {
+                if ((params.n_max <= (int) result.size()) ||
+                    (dp.n_max > 0 && dp.n_max <= (int) result.size())) {
                     drafting[seq_id] = false;
                     n_drafting--;
                     continue;
@@ -844,8 +884,16 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
 
             if (dp.result->size() < (size_t) params.n_min) {
                 dp.result->clear();
+                if (dp.probs) {
+                    dp.probs->clear();
+                }
             }
         }
+    }
+
+    void set_seed(llama_seq_id seq_id, uint32_t seed) override {
+        GGML_ASSERT(seq_id >= 0 && seq_id < (llama_seq_id) rngs.size());
+        rngs[seq_id].seed(seed);
     }
 
     void accept(llama_seq_id seq_id, uint16_t n_accepted, bool /*is_other*/) override {
