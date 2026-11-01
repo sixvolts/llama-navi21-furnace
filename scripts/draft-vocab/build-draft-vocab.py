@@ -12,7 +12,8 @@ Writes a copy of the drafter with
                        computed before
   d2t    [K] i64       head row -> target token id
 where <head> is output.weight for DFlash drafters and blk.<L>.nextn.shared_head_head.weight
-for Qwen3.5 MTP drafters (whose full-vocabulary output.weight is dropped).
+for Qwen3.5 MTP drafters (whose full-vocabulary output.weight is dropped). EAGLE-3/4 drafters
+(architecture eagle3) have their own trained head: its K rows are kept instead of the target's.
 
 Token set: every non-normal (control / user-defined) token, then the ranking file (most
 frequent first), then the lowest remaining ids - BPE ids follow merge order, a reasonable
@@ -59,11 +60,19 @@ for i in range(n_vocab):
         break
     keep.add(i)
 ids = np.array(sorted(keep), dtype=np.int64)
-rows = np.array(head.data)[ids]            # quantized rows as raw bytes
 
 src = gguf.GGUFReader(args.drafter)
 arch = src.fields['general.architecture'].contents()
-if arch == 'dflash':
+if arch == 'eagle3':
+    # the drafter's own head; the target only supplies the token types
+    head = next(t for t in src.tensors if t.name == 'output.weight')
+    assert int(head.shape[1]) == n_vocab, 'EAGLE drafter head must cover the whole target vocabulary'
+    assert not any(t.name == 'd2t' for t in src.tensors), 'drafter already has a reduced vocabulary'
+rows = np.array(head.data)[ids]            # quantized rows as raw bytes
+
+if arch == 'eagle3':
+    head_name, drop = 'output.weight', set()
+elif arch == 'dflash':
     head_name, drop = 'output.weight', set()
 elif f'{arch}.nextn_predict_layers' in src.fields:
     il = src.fields[f'{arch}.block_count'].contents() - 1
@@ -94,4 +103,4 @@ w.write_header_to_file()
 w.write_kv_data_to_file()
 w.write_tensors_to_file()
 w.close()
-print(f'{args.out}: {head_name} = {len(ids)} rows of the target head ({head.tensor_type.name}, {rows.nbytes / 2**20:.1f} MiB), d2t [{len(ids)}]')
+print(f'{args.out}: {head_name} = {len(ids)} rows of the {"drafter" if arch == "eagle3" else "target"} head ({head.tensor_type.name}, {rows.nbytes / 2**20:.1f} MiB), d2t [{len(ids)}]')

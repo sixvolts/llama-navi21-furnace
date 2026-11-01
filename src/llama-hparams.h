@@ -60,6 +60,8 @@ struct llama_hparams {
     bool swin_norm;
     bool norm_before_residual = false;
     bool norm_before_fc       = false;
+    uint32_t norm_before_fc_groups = 1;     // EAGLE-4: one RMSNorm per target layer's slice of the fc input
+    bool norm_output          = false;      // EAGLE-4: the next draft step reads the normed output
 
     uint32_t n_ctx_train; // context size the model was trained on
     uint32_t n_embd;

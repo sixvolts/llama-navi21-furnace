@@ -23,6 +23,7 @@ from .base import ModelBase, TextModel, gguf, logger
     "LlavaForConditionalGeneration",
     "VoxtralForConditionalGeneration",
     "LlamaForCausalLMEagle3",
+    "LlamaForCausalLMEagle4",
     "Eagle3LlamaForCausalLM",
     "Eagle3Speculator",
     "Eagle3DraftModel",
@@ -75,7 +76,14 @@ class LlamaModel(TextModel):
             # if present, else derive from the target layer count.
             target_num_layers = target_config["num_hidden_layers"]
             aux_layer_ids = eagle3_raw_config.get("eagle_aux_hidden_state_layer_ids")
-            if aux_layer_ids:
+            # EAGLE-4 names the layers whose *output* it reads (the sglang convention); llama.cpp
+            # extracts the *input* of the layer it is given, which is one layer later.
+            self.is_eagle4 = self.origin_hf_arch == "LlamaForCausalLMEagle4"
+            if aux_layer_ids is None and self.is_eagle4:
+                aux_layer_ids = eagle3_raw_config.get("eagle_config", {}).get("eagle_aux_hidden_state_layer_ids")
+            if aux_layer_ids and self.is_eagle4:
+                target_layers = [i + 1 for i in aux_layer_ids]
+            elif aux_layer_ids:
                 target_layers = aux_layer_ids
             else:
                 target_layers = [2, target_num_layers // 2, target_num_layers - 3]
@@ -100,6 +108,21 @@ class LlamaModel(TextModel):
             # norm_before_fc: RMSNorm applied to the fused target features before the
             # fc projection (e.g. nvidia/gpt-oss-120b-Eagle3-v3)
             norm_before_fc = eagle3_raw_config.get("norm_before_fc", False)
+            if self.is_eagle4:
+                # EAGLE-4: fc_norm.{0,1,2}, one RMSNorm per target layer, written as one
+                # concatenated enc.output_norm applied per group; the next draft step reads the
+                # normed output (norm_output); its single layer has a sliding window.
+                n_aux = len(target_layers)
+                fc_norm = bool(eagle3_raw_config.get("fc_norm") or eagle3_raw_config.get("enable_fc_norm"))
+                norm_before_fc = fc_norm
+                if fc_norm:
+                    self.gguf_writer.add_norm_before_fc_groups(n_aux)
+                norm_output = bool(eagle3_raw_config.get("norm_output", False))
+                self.gguf_writer.add_norm_output(norm_output)
+                window = eagle3_raw_config.get("sliding_window")
+                if window and eagle3_raw_config.get("use_sliding_window", True):
+                    self.gguf_writer.add_sliding_window(int(window))
+                logger.info(f"EAGLE-4: fc_norm = {fc_norm} (x{n_aux}), norm_output = {norm_output}, sliding_window = {window}")
             logger.info(f"EAGLE-3: norm_before_fc = {norm_before_fc}")
             self.gguf_writer.add_norm_before_fc(norm_before_fc)
 
@@ -223,6 +246,11 @@ class LlamaModel(TextModel):
                 elif name.startswith("layers.0."):  # Eagle3Speculator format
                     new_name = "model." + name
                     new_tensors[new_name] = gen
+                elif name == "norm.weight":  # EAGLE-4 final norm
+                    new_tensors["model.norm.weight"] = gen
+                elif name == "embed_tokens.weight" and self.hparams.get("architectures", [None])[0] == "LlamaForCausalLMEagle4":
+                    # EAGLE-4 is served with the target's token embeddings (sglang shares them)
+                    logger.info("EAGLE-4: dropping embed_tokens, the target's are used")
                 else:
                     new_tensors[name] = gen
             return new_tensors
@@ -234,6 +262,19 @@ class LlamaModel(TextModel):
         if getattr(self, 'is_eagle3', False):
             if name == "fc.weight":
                 yield (name, data_torch)
+                return
+            if name.startswith("fc_norm."):
+                # EAGLE-4: collect fc_norm.{0,1,2} and write them as one concatenated norm
+                if not hasattr(self, '_eagle4_fc_norm'):
+                    self._eagle4_fc_norm = {}
+                self._eagle4_fc_norm[int(name.split(".")[1])] = data_torch
+                n_aux = len(self.hparams.get("eagle_config", {}).get("eagle_aux_hidden_state_layer_ids") or [0, 0, 0])
+                if len(self._eagle4_fc_norm) == n_aux:
+                    yield (self.format_tensor_name(gguf.MODEL_TENSOR.ENC_OUTPUT_NORM),
+                           torch.cat([self._eagle4_fc_norm[i] for i in range(n_aux)]))
+                return
+            if name.startswith("efficient_lm_head"):
+                # EAGLE-4 low-rank candidate head: not used yet, the full lm_head scores the vocab
                 return
             if name == "input_norm.weight":
                 yield (self.format_tensor_name(gguf.MODEL_TENSOR.ENC_OUTPUT_NORM), data_torch)

@@ -170,6 +170,8 @@ class Keys:
         HAS_CONFIDENCE_HEAD               = "{arch}.has_confidence_head"
         NORM_BEFORE_RESIDUAL              = "{arch}.norm_before_residual"
         NORM_BEFORE_FC                    = "{arch}.norm_before_fc"
+        NORM_BEFORE_FC_GROUPS             = "{arch}.norm_before_fc_groups"
+        NORM_OUTPUT                       = "{arch}.norm_output"
 
     class Adapters:
         COUNT                = "{arch}.adapters.count"

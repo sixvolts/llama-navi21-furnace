@@ -32,6 +32,31 @@ void llama_model_eagle3::load_arch_hparams(llama_model_loader & ml) {
     // compatible with eagle3.1 (e.g. nvidia/gpt-oss-120b-Eagle3-v3)
     ml.get_key(LLM_KV_NORM_BEFORE_FC, hparams.norm_before_fc, false);
 
+    // EAGLE-4 drafts: each target layer's hidden state gets its own RMSNorm before fc
+    // (norm_before_fc_groups = number of target layers), and the next draft step is fed the
+    // normed output instead of the pre-norm sum (norm_output).
+    ml.get_key(LLM_KV_NORM_BEFORE_FC_GROUPS, hparams.norm_before_fc_groups, false);
+    ml.get_key(LLM_KV_NORM_OUTPUT,           hparams.norm_output,           false);
+    if (hparams.norm_before_fc_groups > 1) {
+        if (!hparams.norm_before_fc || hparams.n_embd_inp_enc_impl % hparams.norm_before_fc_groups != 0) {
+            throw std::runtime_error("EAGLE3: norm_before_fc_groups needs norm_before_fc and must divide the fc input");
+        }
+    }
+    // EAGLE-4: the draft layer attends to a sliding window (as trained: the n_swa keys ending at the query)
+    ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW, hparams.n_swa, false);
+    if (hparams.n_swa > 0) {
+        hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
+        hparams.set_swa_pattern(0); // every layer
+        hparams.rope_freq_base_train_swa  = hparams.rope_freq_base_train;
+        hparams.rope_freq_scale_train_swa = hparams.rope_freq_scale_train;
+        LLAMA_LOG_INFO("%s: EAGLE3 draft sliding window = %u\n", __func__, hparams.n_swa);
+    }
+
+    if (hparams.norm_before_fc_groups > 1 || hparams.norm_output) {
+        LLAMA_LOG_INFO("%s: EAGLE-4 draft: fc norm groups = %u, norm_output = %d\n", __func__,
+                hparams.norm_before_fc_groups, hparams.norm_output);
+    }
+
     type = LLM_TYPE_UNKNOWN;
 }
 
@@ -128,7 +153,15 @@ llama_model_eagle3::graph<true>::graph(const llama_model & model, const llm_grap
     cur = build_inp_embd_enc();
 
     // RMSNorm on the fused target features before fc
-    if (hparams.norm_before_fc) {
+    if (hparams.norm_before_fc && hparams.norm_before_fc_groups > 1) {
+        // one RMSNorm per target layer: normalize each slice, then scale by the concatenated weights
+        const int64_t n_grp = hparams.norm_before_fc_groups;
+        cur = ggml_reshape_3d(ctx0, cur, cur->ne[0] / n_grp, n_grp, cur->ne[1]);
+        cur = ggml_rms_norm(ctx0, cur, hparams.f_norm_rms_eps);
+        cur = ggml_reshape_2d(ctx0, cur, cur->ne[0] * n_grp, cur->ne[2]);
+        cur = ggml_mul(ctx0, cur, model.output_norm_enc);
+        cb(cur, "enc_input_norm", -1);
+    } else if (hparams.norm_before_fc) {
         cur = build_norm(cur, model.output_norm_enc, NULL, LLM_NORM_RMS, -1);
         cb(cur, "enc_input_norm", -1);
     }
@@ -191,7 +224,14 @@ llama_model_eagle3::graph<false>::graph(const llama_model & model, const llm_gra
     // inp_pos - contains the positions
     ggml_tensor * inp_pos = build_inp_pos();
 
-    auto * inp_attn = build_attn_inp_kv();
+    // with a sliding window the draft's KV cache is the SWA cache of an iswa pair
+    llm_graph_input_attn_kv      * inp_attn     = nullptr;
+    llm_graph_input_attn_kv_iswa * inp_attn_swa = nullptr;
+    if (hparams.swa_type != LLAMA_SWA_TYPE_NONE) {
+        inp_attn_swa = build_attn_inp_kv_iswa();
+    } else {
+        inp_attn = build_attn_inp_kv();
+    }
 
     const float kq_scale = 1.0f/sqrtf(float(n_embd_head));
 
@@ -252,9 +292,15 @@ llama_model_eagle3::graph<false>::graph(const llama_model & model, const llm_gra
         cb(Qcur, "Qcur_rope", il);
         cb(Kcur, "Kcur_rope", il);
 
-        cur = build_attn(inp_attn,
-                model.layers[il].wo, NULL, nullptr,
-                Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, kq_scale, il);
+        if (inp_attn_swa) {
+            cur = build_attn(inp_attn_swa,
+                    model.layers[il].wo, NULL, nullptr,
+                    Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, kq_scale, il);
+        } else {
+            cur = build_attn(inp_attn,
+                    model.layers[il].wo, NULL, nullptr,
+                    Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, kq_scale, il);
+        }
 
         // Add residual and update it
         ggml_tensor * ffn_inp = ggml_add(ctx0, cur, inpSA);
@@ -283,14 +329,22 @@ llama_model_eagle3::graph<false>::graph(const llama_model & model, const llm_gra
 
     cur = inpL;
 
-    // Output prenorm state (for next token's g_embeddings in autoregressive generation)
-    ggml_set_output(cur);
-    res->t_h_nextn = cur;
+    // Output state for the next token's g_embeddings in autoregressive generation:
+    // the prenorm sum (EAGLE-3), or the normed output (EAGLE-4, norm_output)
+    if (!hparams.norm_output) {
+        ggml_set_output(cur);
+        res->t_h_nextn = cur;
+    }
 
     cur = build_norm(cur,
             model.output_norm, NULL,
             LLM_NORM_RMS, -1);
     cb(cur, "result_norm", -1);
+
+    if (hparams.norm_output) {
+        ggml_set_output(cur);
+        res->t_h_nextn = cur;
+    }
 
     // lm_head - projects to draft vocabulary
     // if the draft has no own output projection, inherit the target model's lm_head
